@@ -1,0 +1,27 @@
+{
+  "name": "nodejs-cac-authentication",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^3.4.8"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/gmoyanollc/nodejs-cac-authentication.git"
+  },
+  "keywords": [
+    "PKCS11"
+  ],
+  "author": "[George Moyano] (https://onename.com/gmoyano)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gmoyanollc/nodejs-cac-authentication/issues"
+  },
+  "homepage": "https://github.com/gmoyanollc/nodejs-cac-authentication#readme"
+}
