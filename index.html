@@ -11,8 +11,18 @@
 </head>
 
 <body>
-<h1>nodejs-cac-authentication</h1>
-<a href="authenticate">Log in using client certificate</a>
+  <h1>nodejs-cac-authentication</h1>
+  <form action="/authenticate">
+    <label for="urlHostnameInput">url hostname:</label>
+    <input type="text" id="urlHostnameInput" name="urlHostnameInput"
+      placeholder="mceits.usmc.mil"
+      value="mceits.usmc.mil">
+    <label for="urlPathInput">url path:</label>
+    <input type="text" id="urlPathInput" name="urlPathInput"
+      placeholder="/sites/MCTSSA/Script%20Library/Sources/page-hit-dashboard.html"
+      value="/sites/MCTSSA/Script%20Library/Sources/page-hit-dashboard.html"> 
+    <input type="submit" value="Submit">
+  </form>
 </body>
 
 </html>

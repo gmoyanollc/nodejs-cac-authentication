@@ -10,12 +10,18 @@ const https = require("https");
 
 const DEFAULT_IP = "127.0.0.1";
 const DEFAULT_PORT = "5555";
-const opts = {
-  key: fs.readFileSync("server_key.pem"),
-  cert: fs.readFileSync("server_cert.pem"),
+const httpsRequestOptions = {
+  host: "gmoyano.com",
+  port: 443,
+  path: "",
+  //key: fs.readFileSync("server_key.pem"),
+  key: "",
+  //cert: fs.readFileSync("server_cert.pem"),
+  cert: "",
   requestCert: true,
   rejectUnauthorized: false,
-  ca: [fs.readFileSync("server_cert.pem")]
+  //ca: [fs.readFileSync("server_cert.pem")]
+  ca: ""
 };
 
 const App = function() {
@@ -103,29 +109,52 @@ const App = function() {
     };
 
     self.routes["/authenticate"] = function(req, res) {
-      self.app.get("/", (req, res) => {
-        res.send('<a href="authenticate">Log in using client certificate</a>');
-      });
-      self.app.get("/authenticate", (req, res) => {
-        const cert = req.connection.getPeerCertificate();
-        if (req.client.authorized) {
-          res.send(
-            `Hello ${cert.subject.CN}, your certificate was issued by ${cert.issuer.CN}!`
-          );
-        } else if (cert.subject) {
-          res
-            .status(403)
-            .send(
-              `Sorry ${cert.subject.CN}, certificates from ${cert.issuer.CN} are not welcome here.`
+      try {
+        httpsRequestOptions.host = req.query.urlHostnameInput
+        httpsRequestOptions.path = req.query.urlPathInput
+        //res.send("contacting " + req.query.urlHostnameInput)
+
+        const httpsRequest = https.request(httpsRequestOptions, httpsResponse => {
+          let body = "";
+          httpsResponse.on("data", data => {
+            body += data;
+          });
+          httpsResponse.on("end", () => {
+            const authorized = "authorized: " + httpsResponse.socket.authorized
+            const headers = JSON.stringify(httpsResponse.headers, null, 2)
+            const responseText = authorized + "<br><br>" + headers + "<br><br>" + body
+            res.send(responseText);
+          });
+        });
+
+        httpsRequest.on("error", (error) => {
+          throw (error)
+        })
+
+        httpsRequest.end()
+        /* self.app.get("/authenticate", (req, res) => {
+          const cert = req.connection.getPeerCertificate();
+          if (req.client.authorized) {
+            res.send(
+              `Hello ${cert.subject.CN}, your certificate was issued by ${cert.issuer.CN}!`
             );
-        } else {
-          res
-            .status(401)
-            .send(
-              `Sorry, but you need to provide a client certificate to continue.`
-            );
-        }
-      });
+          } else if (cert.subject) {
+            res
+              .status(403)
+              .send(
+                `Sorry ${cert.subject.CN}, certificates from ${cert.issuer.CN} are not welcome here.`
+              );
+          } else {
+            res
+              .status(401)
+              .send(
+                `Sorry, but you need to provide a client certificate to continue.`
+              );
+          }
+        }); */
+      } catch (error) {
+        throw (error)
+      }
     };
   };
 
