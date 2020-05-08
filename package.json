@@ -4,7 +4,9 @@
   "description": "",
   "main": "server.js",
   "dependencies": {
-    "express": "^3.4.8"
+    "express": "^3.4.8",
+    "graphene-pk11": "^2.1.7",
+    "inquirer": "^7.1.0"
   },
   "devDependencies": {},
   "scripts": {
