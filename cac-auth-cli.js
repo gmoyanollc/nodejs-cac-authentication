@@ -1,31 +1,47 @@
-const tls = require('tls');
+const https = require('https');
 const inquirer = require("inquirer");
-var graphene = require("graphene-pk11");
-var Module = graphene.Module;
+const graphene = require("graphene-pk11");
+const grapheneModule = graphene.Module;
+const scModule = grapheneModule.load("/lib64/pkcs11/opensc-pkcs11.so", "opensc");
+const cli = require("./src/cli.js")
 
-var mod = Module.load("/lib64/pkcs11/opensc-pkcs11.so", "opensc");
+const HttpConnection = (urlArg) => {
 
-const TlsOptions = () => {
-  let options = {
-    ca:   "",
-    cert: "",
-    key:  "",
-    host: "",
-    port: 8000,
-    rejectUnauthorized:true,
-    requestCert:true
+  const url = new URL(urlArg)
+
+  const options = {
+    cert: null,
+    key:  null,
+    host: url.host,
+    path: url.pathname + url.search,
+    checkServerIdentity: () => { return null; },
+    rejectUnauthorized: true,
+    requestCert: true
   };
+
+  function request () {
+    var httpsRequest = https.request(options, (httpResponse) => { 
+      httpResponse.on('data', function(data) { 
+          process.stdout.write(data); 
+      }); 
+    }); 
+    httpsRequest.end(); 
+    httpsRequest.on('error', function(e) { 
+        console.error(e); 
+    });
+  }
   return {
-    getTlsOptions: () => options,
-    setCa: (ca) => { options.ca = ca },
-    setCert: (cert) => { options.cert = cert },
-    setKey: (key) => { options.key = key },
+    getOptions: () => options ,
+    request: () => request(),
+    setOptionCert: (cert) => options.cert = cert,
+    setOptionKey: (key) => { options.key = key },
+    setOptions: (httpOptions) => options = httpOptions,
     setHost: (host) => { options.host = host },
   }
 }
 
-const ScReader = () => {
-  let slots
+const ScReader = (readerSlots) => {
+  const slots = readerSlots
 
   function printProperties () {
     //[Listing capabilities](https://www.npmjs.com/package/graphene-pk11)
@@ -94,16 +110,42 @@ const ScReader = () => {
   return {
     getSlots: () => slots, 
     printProperties: () => printProperties(),
-    setSlots: () => slots = mod.getSlots(true),
+    setSlots: () => slots = scModule.getSlots(true),
   }
 }
 
-const Sc = (slotNumber) => {
-  const slotKey = slotNumber || 0
-  const slot = mod.getSlots(slotKey)
+const Sc = (scSlot) => {
+  const slot = scSlot
+  const slotSession = slot.open()
+  const token = slot.getToken() 
+    //if (slotSession.flags & graphene.SlotFlag.TOKEN_PRESENT) 
+  const grapheneCertObject = slotSession.getObject(slotSession.find({class: graphene.ObjectClass.CERTIFICATE}).items_[0]).toType()
+  const grapheneCertPublicKeyObject = slotSession.getObject(slotSession.find({class: graphene.ObjectClass.PUBLIC_KEY}).items_[0]).toType()
+  
+  /* function parseCertBase64 (certBase64) {
+    const test = new Uint8Array(["test"]).buffer;
+    const buffer = new Uint8Array([certHex]).buffer;
+    const asn1 = asn1js.fromBER(buffer);
+    const certificate = new pkijs.Certificate({ schema: asn1.result });
+  } */
 
-  let privateCerts
-  let publicCerts = getPublicCerts()
+  function printCertInfo (certObject) {
+
+    function logCertInfo (cert) {
+      // [Displaying certificate information. #75](https://github.com/PeculiarVentures/graphene/issues/75)
+      console.log("Certificate info:\n===========================");
+      console.log("Handle:", cert.handle.toString("hex"));
+      console.log("ID:", cert.id.toString("hex"));
+      console.log("Label:", cert.label);
+      //console.log("category:", graphene.CertificateCategory[cert.category]);
+      console.log("Subject:", cert.subject.toString("hex"));
+      console.log("Issuer:", cert.issuer.toString("hex"));
+      console.log("Value:", cert.value.toString("hex"));
+    }
+
+    let certObjectItem = certObject || grapheneCertObject
+    logCertInfo(certObjectItem)
+  }
 
   function scLogin (result) {
     inquirer
@@ -115,63 +157,64 @@ const Sc = (slotNumber) => {
         }
       ])
       .then( answer => {
-        console.log("prompted")
+        console.log("[INFO] passphrase inquiry answered")
         result(answer)
       })
       .catch(error => {
-        console.log("[ERROR]")
+        console.log("[ERROR] passphrase inquiry")
         console.log(JSON.stringify(error))
         if (error.isTtyError) {
           // Prompt couldn't be rendered in the current environment
         } else {
           // Something else when wrong
         }
-        mod.finalize();
+        scModule.finalize();
       });
   }
 
-  function getPublicCerts () {
-    if (slot.flags & graphene.SlotFlag.TOKEN_PRESENT) {
-      scLogin( answer => {
-          console.log("got it")
-          var session = slot.open();
-          let loginResponse = session.login(answer);
-          if (!loginResponse) {
-            console.log("valid pass")
-            let publicKeys = session.find({class: graphene.ObjectClass.PUBLIC_KEY}).items_
-  
-            for (let item = 0; (item < publicKeys.length); item++) {
-              console.log(publicKeys[item])
-            }
-            session.logout();
-            session.close();
-          } else
-            console.log(loginResponse)
-          mod.finalize();
-        })
-    }
+  function getPublicKey (keyObject) {
+    let keyObjectItem = keyObject || grapheneCertPublicKeyObject
+    return keyObjectItem.getAttribute({ modulus: null, publicExponent: null })
   }
+
   return {
-    setPrivateCerts: () => {},
+    //setSlot: (slotNumber) => { readerSlot = slotNumber },
+    getToken: () => token, 
+    getBase64Cert: () => "-----BEGIN CERTIFICATE-----"
+    + grapheneCertObject.value.base64Slice() + "-----END CERTIFICATE-----", 
+    getBase64PublicKey: (keyObject) => {
+      const publicKey = getPublicKey(keyObject);
+      console.log(JSON.stringify(publicKey, null, 2));
+      return "-----BEGIN RSA PUBLIC KEY-----" + publicKey.modulus.base64Slice() + publicKey.publicExponent.base64Slice() + "-----END RSA PUBLIC KEY-----"
+    },
+    printCertInfo: (certObject) => printCertInfo(certObject)
   }
 }
 
-mod.initialize();
+const cliFactory = cli.cliFactory()
 
-let scReader = ScReader()
-scReader.setSlots()
-
+scModule.initialize();
+let scReader = ScReader(scModule.getSlots(true))
 if (scReader.getSlots()) {
   if (scReader.getSlots().length > 0) {
     scReader.printProperties()
-    let sc = Sc()
-    //mod.finalize()
-    //console.log("done.")
+    if (scReader.getSlots().length = 1) {
+      let sc = Sc(scModule.getSlots(0))
+      //sc.printCertInfo()
+      let httpConnection = HttpConnection(cliFactory.getScriptUrl())
+      httpConnection.setOptionCert(sc.getBase64Cert())
+      httpConnection.setOptionKey(sc.getBase64PublicKey())
+      console.log(httpConnection.getOptions())
+      httpConnection.request()
+    } else {
+      console.log("[WARNING] more than one smart card found.")
+      scModule.finalize()
+    }
   } else {
     console.log("[WARNING] smart card not found.")
-    mod.finalize()
+    scModule.finalize()
   }
 } else {
-  mod.finalize();
+  scModule.finalize();
   console.log("[WARNING] smart card reader module not found.")
 }
