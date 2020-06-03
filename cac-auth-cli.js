@@ -1,3 +1,4 @@
+const fs = require("fs")
 const https = require('https');
 const inquirer = require("inquirer");
 const graphene = require("graphene-pk11");
@@ -5,33 +6,39 @@ const grapheneModule = graphene.Module;
 const scModule = grapheneModule.load("/lib64/pkcs11/opensc-pkcs11.so", "opensc");
 const cli = require("./src/cli.js")
 
-const HttpConnection = (urlArg) => {
+const HttpsConnection = (urlArg) => {
 
   const url = new URL(urlArg)
 
   const options = {
-    cert: null,
-    key:  null,
+    //ca:   fs.readFileSync("./resource/DoD_PKE_CA_chain.pem"),
+    //cert: null,
+    //key:  fs.readFileSync("./resource/g-public-key.pem"),
     host: url.host,
     path: url.pathname + url.search,
-    checkServerIdentity: () => { return null; },
-    rejectUnauthorized: true,
-    requestCert: true
+    //checkServerIdentity: () => { return null; },
+    //rejectUnauthorized: true,
+    //requestCert: true
   };
 
   function request () {
-    var httpsRequest = https.request(options, (httpResponse) => { 
-      httpResponse.on('data', function(data) { 
+    const httpsRequest = https.request(options, (httpsResponse) => { 
+      console.log('statusCode:', httpsResponse.statusCode);
+      console.log('headers:', httpsResponse.headers);
+      httpsResponse.on("data", function(data) { 
           process.stdout.write(data); 
       }); 
-    }); 
-    httpsRequest.end(); 
-    httpsRequest.on('error', function(e) { 
-        console.error(e); 
     });
+    httpsRequest.on('error', function(error) { 
+      console.error(error);
+    });
+    httpsRequest.end();  
   }
   return {
-    getOptions: () => options ,
+    getOptions: () => options,
+    printOptionsCa: () => console.log("[INFO] options.ca: \n", options.ca.toString()),
+    printOptionsCert: () => console.log("[INFO] options.cert: \n", options.cert.toString()),
+    printOptionsKey: () => console.log("[INFO] options.key: \n", options.key.toString()),
     request: () => request(),
     setOptionCert: (cert) => options.cert = cert,
     setOptionKey: (key) => { options.key = key },
@@ -180,12 +187,12 @@ const Sc = (scSlot) => {
   return {
     //setSlot: (slotNumber) => { readerSlot = slotNumber },
     getToken: () => token, 
-    getBase64Cert: () => "-----BEGIN CERTIFICATE-----"
-    + grapheneCertObject.value.base64Slice() + "-----END CERTIFICATE-----", 
+    getBase64Cert: () => "-----BEGIN CERTIFICATE-----\n"
+    + grapheneCertObject.value.base64Slice() + "\n-----END CERTIFICATE-----", 
     getBase64PublicKey: (keyObject) => {
       const publicKey = getPublicKey(keyObject);
-      console.log(JSON.stringify(publicKey, null, 2));
-      return "-----BEGIN RSA PUBLIC KEY-----" + publicKey.modulus.base64Slice() + publicKey.publicExponent.base64Slice() + "-----END RSA PUBLIC KEY-----"
+      //console.log(JSON.stringify(publicKey, null, 2));
+      return "-----BEGIN PUBLIC KEY-----" + publicKey.modulus.base64Slice() + publicKey.publicExponent.base64Slice() + "-----END PUBLIC KEY-----"
     },
     printCertInfo: (certObject) => printCertInfo(certObject)
   }
@@ -201,11 +208,14 @@ if (scReader.getSlots()) {
     if (scReader.getSlots().length = 1) {
       let sc = Sc(scModule.getSlots(0))
       //sc.printCertInfo()
-      let httpConnection = HttpConnection(cliFactory.getScriptUrl())
-      httpConnection.setOptionCert(sc.getBase64Cert())
-      httpConnection.setOptionKey(sc.getBase64PublicKey())
-      console.log(httpConnection.getOptions())
-      httpConnection.request()
+      let httpsConnection = HttpsConnection(cliFactory.getScriptUrl())
+      //httpsConnection.setOptionCert(sc.getBase64Cert())
+      //httpsConnection.setOptionKey(sc.getBase64PublicKey())
+      //console.log(JSON.stringify(httpsConnection.getOptions()))
+      //httpsConnection.printOptionsCa()
+      //httpsConnection.printOptionsCert()
+      //httpsConnection.printOptionsKey()
+      httpsConnection.request()
     } else {
       console.log("[WARNING] more than one smart card found.")
       scModule.finalize()

@@ -53,8 +53,31 @@ There are two attributes in your network domain directories to choose from:
 ## DER Certificate Format
 [Cryptography Tutorials - Herong's Tutorial Examples](http://www.herongyang.com/Cryptography/Certificate-Format-OpenSSL-View-in-DER-and-PEM.html)
 
-openssl genrsa -out test.key -aes128
+### Certificate Examples
+Certificates are public keys that correspond to a private key, and that are digitally signed either by a Certificate Authority or by the owner of the private key (such certificates are referred to as "self-signed"). (https://nodejs.org/api/tls.html#tls_tls_ssl_concepts)
 
+#### Generate private key
+openssl genrsa -out test.key.pem -aes128
+
+#### Generate public key from Private key
+openssl rsa -in test.key.pem -outform PEM -pubout -out test.public.pem
+
+#### Create Self-Signed DER Certificate with Private Key
 openssl req -new -x509 -key test.key -out test.der -outform der
 
+##### Print Certificate
 openssl x509 -in test.der -inform der -noout -text
+
+#### DoD
+##### Decode DoD Base64 DER Public Key
+openssl base64 -d -A -in g-public-key.der.base64 -out g-public-key.der
+
+###### Print Certificate
+openssl x509 -in g-public-key.der -inform der -noout -text
+
+##### Convert DoD DER Public Key to PEM
+PEM result is the same as Base64 encoded DER.
+
+openssl x509 -in g-public-key.der -inform der -outform pem -out g-public-key.pem
+
+[Openssl Certificates Tips & Tricks DER CRT CER PEM](https://www.schalley.eu/2010/12/30/openssl-certificates-tips-tricks-der-crt-cer-pem/)
