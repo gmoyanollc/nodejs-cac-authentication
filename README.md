@@ -81,3 +81,21 @@ PEM result is the same as Base64 encoded DER.
 openssl x509 -in g-public-key.der -inform der -outform pem -out g-public-key.pem
 
 [Openssl Certificates Tips & Tricks DER CRT CER PEM](https://www.schalley.eu/2010/12/30/openssl-certificates-tips-tricks-der-crt-cer-pem/)
+
+## Task Checklist
+
+### CAC
+
+[x] access smartcard device
+[x] public cert access
+[x] public cert serialization
+[x] token authenticatation
+
+### Network CAC Authentication
+[x] HTTPS get request
+[ ] TLS hello
+[ ] identification cert authentication
+[ ] TLS secret en/decryption
+[ ] secure HTTP session
+
+---
